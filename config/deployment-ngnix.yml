@@ -6,7 +6,6 @@ spec:
   replicas: 3
   selector:
     matchLabels:
-      env: dev
       app: nginx-app
   template:
     spec:
@@ -16,7 +15,6 @@ spec:
           ports:
             - containerPort: 80
     metadata:
-      env: dev
       app: nginx-app
 
 

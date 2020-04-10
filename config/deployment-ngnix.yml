@@ -18,9 +18,9 @@ spec:
           image: nginx
           ports:
             - containerPort: 80
-    metadata:
-      env: dev
-      app: nginx-app
+      metadata:
+        env: dev
+        app: nginx-app
 
 
 

@@ -1,0 +1,2060 @@
+﻿Quick Note
+use kubeadm reset if you have a cluster already setup (on all nodes)
+
+
+kubeadm init 
+  998  mkdir -p $HOME/.kube
+  999  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+ 1000  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+ 1001  kubectl get nodes
+  kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')" 
+ 1002  kubectl get pods --all-namespaces
+ 1003  kubectl get pods --all-namespaces -w
+ 1004  kubectl get pods --all-namespaces 
+ 
+ 
+ FROM SCRATCH
+ sudo apt-get update && sudo apt-get install -y apt-transport-https curl
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+deb https://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+sudo apt-get update
+sudo apt-get install -y kubelet kubeadm kubectl
+sudo apt-mark hold kubelet kubeadm kubectl
+
+
+----
+        to join nodes
+         kubeadm token create --print-join-command
+ 
+ on node
+ Only if you have different version than master --> apt-get install -y kubelet kubeadm kubectl
+ 
+ if not please use join command to join the node
+ ----
+cat pod.yml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: apache2
+  labels:
+    mycka: simplilearn
+spec:
+  containers:
+  - name: mycontainer
+    image: docker.io/httpd
+    ports:
+    - containerPort: 80
+
+
+
+
+kubectl create -f pod.yml 
+   41  kubectl get pods 
+   42  kubectl get pods -o wide
+   43  curl  IPOFPOD
+ kubectl describe pod apache2
+
+
+kubectl get pods --show-labels
+  100  kubectl get pods -l 'mycka=simplilearn'
+  101  kubectl get pods -l 'mycka=simplilearn1'
+  102  kubectl get pods -l 'mycka=simplilearn2'
+
+
+
+
+
+
+kubectl exec -it apache2 bash
+
+
+---
+
+
+cat svc1.yml 
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-svc
+spec:
+  selector:
+    mycka: simplilearn
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 80
+
+
+
+
+kubectl describe svc my-svc
+kubectl exec -it apache2 bash
+kubectl exec -it apache5 bash
+root@apache5:/usr/local/apache2# echo "test" > htdocs/index.html 
+root@apache5:/usr/local/apache2# 
+
+
+
+
+kubectl exec -it apache3 bash
+kubectl exec -it apache5 bash
+curl 10.107.133.16:8080
+
+
+---
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: frontend
+  labels:
+    app: guestbook
+spec:
+  # modify replicas according to your case
+  replicas: 3
+  selector:
+    matchLabels:
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        tier: frontend
+    spec:
+      containers:
+      - name: httpd
+        image: docker.io/httpd
+
+
+kubectl create -f rep
+kubectl get rs
+kubectl get pods 
+kubectl get pods  --show-labels
+
+
+vi svc1.yml 
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-svc
+spec:
+  selector:
+    tier: frontend
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 80
+
+
+
+
+kubectl create -f svc1.yml 
+kubectl describe svc my-svc
+kubectl edit replicaset frontend
+To increase the replica 
+
+
+
+
+ 
+ kubectl delete replicaset frontend
+  206  kubectl get pods 
+  207  kubectl delete svc my-svc
+
+
+----
+kubectl create -f dc.yml 
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  selector:
+    matchLabels:
+      app: httpd
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: httpd
+    spec:
+      containers:
+      - name: httpd
+        image: httpd:latest 
+        ports:
+        - containerPort: 80
+
+
+   87  kubectl get deployment
+   88  kubectl get pods 
+   89  kubectl get rs
+   90  kubectl get deployment
+   91  kubectl expose deployment nginx-deployment
+   92  kubectl get pods 
+   93  kubectl get svc
+   94  curl 10.102.74.243
+
+kubectl scale deployment nginx-deployment --replicas=4
+
+
+--
+ kubectl run test --image=docker.io/httpd --dry-run -o yaml > mydep.yml
+vi mydep.yml 
+  105  kubectl run test --image=docker.io/httpd 
+  106  kubectl get pod
+  107  kubectl get pod -w
+  108  kubectl get deployment
+  109  kubectl expose deployment test --port-=80
+  110  kubectl expose deployment test --port=80
+  111  kubectl get svc
+  112  curl 10.103.220.61 
+---
+Mario
+ kubectl run mymario --image=pengbai/docker-supermario
+  122  kubectl expose deployment mymario --port=8080
+  123  kubectl get svc
+  124  kubectl edit svc mymari
+  125  kubectl edit svc mymario
+  126  kubectl get svc
+
+
+
+
+---
+kubectl create namespace myproject2
+  137  kubectl create -f myresource.yml -n myproject2
+  138  kubectl get pods 
+  139  kubectl get pods -n myproject2
+
+
+kubectl config set-context $(kubectl config current-context) --namespace=myproject2
+  145  kubectl get pods 
+  146  kubectl run test --image=httpd 
+  147  kubectl get deployment
+  148  kubectl config set-context $(kubectl config current-context) --namespace=default
+
+
+
+
+
+
+----
+Dealing with ETCD
+kubectl exec -it -n kube-system etcd-kmaster -- ps aux
+
+
+advertise_url="URL:PORTNO"
+
+
+kubectl exec -it -n kube-system etcd-kmaster -- sh -c "ETCDCTL_API=3 etcdctl --endpoints $advertise_url --cacert /etc/kubernetes/pki/etcd/ca.crt --key /etc/kubernetes/pki/etcd/server.key --cert /etc/kubernetes/pki/etcd/server.crt get \"\" --prefix=true -w json" > etcd.json
+
+
+
+
+for k in $(cat etcd.json | jq '.kvs[].key' | cut -d '"' -f2); do echo $k | base64 --decode; echo; done
+
+
+for k in $(cat etcd.json | jq '.kvs[].value | cut -d '"' -f2); do echo $k | base64 --decode; echo; done
+
+
+
+
+KEY=/registry/services/endpoints/default/test
+(test object should exists) 
+
+
+kubectl exec -it -n kube-system etcd-kmaster -- sh -c "ETCDCTL_API=3 etcdctl --endpoints $advertise_url --cacert /etc/kubernetes/pki/etcd/ca.crt --key /etc/kubernetes/pki/etcd/server.key --cert /etc/kubernetes/pki/etcd/server.crt get \"$KEY\" -w json" | jq
+
+
+
+
+ kubectl exec -it -n kube-system etcd-kmaster -- sh -c "ETCDCTL_API=3 etcdctl --endpoints $advertise_url --cacert /etc/kubernetes/pki/etcd/ca.crt --key /etc/kubernetes/pki/etcd/server.key --cert /etc/kubernetes/pki/etcd/server.crt --help"
+
+
+    6  kubectl exec -it -n kube-system etcd-kmaster -- sh -c "ETCDCTL_API=3 etcdctl --endpoints $advertise_url --cacert /etc/kubernetes/pki/etcd/ca.crt --key /etc/kubernetes/pki/etcd/server.key --cert /etc/kubernetes/pki/etcd/server.crt member list"
+
+
+    7  kubectl exec -it -n kube-system etcd-kmaster -- sh -c "ETCDCTL_API=3 etcdctl --endpoints $advertise_url --cacert /etc/kubernetes/pki/etcd/ca.crt --key /etc/kubernetes/pki/etcd/server.key --cert /etc/kubernetes/pki/etcd/server.crt snapshot save test1.db"
+
+
+
+
+
+
+Scheduling 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  labels:
+    env: test
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    imagePullPolicy: IfNotPresent
+  nodeName: kslave2
+-----
+Selector and labels
+kubectl label node kslave1 color=bluefd
+ 
+ apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-labels
+  labels:
+    env: test
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    imagePullPolicy: IfNotPresent
+  nodeSelector: 
+    color: blue
+
+
+
+
+kubectl delete pod nginx
+ 1228  kubectl get nodes --show-labels
+ 1229  kubectl label node kslave2 season=spring
+ 1230  kubectl get nodes --show-labels
+ 1231  cat nodeselect.yml 
+ 1232  cat nodeselector.yml 
+ 1233  cat nodeselect.yml 
+ 1234  vi nodeselect.yml 
+ 1235  kubectl create -f nodeselect.yml 
+ 1236  kubectl get pods -o wide
+ 1237  kubectl label node kslave1 season=spring
+ 1238  kubectl get nodes --show-labels
+ 1239  cat nodeselect.yml 
+
+
+---
+
+
+apiVersion: extensions/v1beta1
+kind: ReplicaSet
+metadata:
+  name: nginx-test
+spec:
+  replicas: 2
+  template:
+    metadata:
+      name: nginx
+      namespace: default
+      labels:
+        env: beta
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+      nodeSelector:
+        color: blue
+---
+
+
+ kubectl get pods --show-labels
+ 1245  kubectl get pods -l run=test21
+ 1246  kubectl get pods -l 'run in (test21)'
+ 1247  kubectl get pods -l 'run notin (test21)'
+ 1248  kubectl get pods -l 'run notin (test21), env in (test)'
+
+
+apiVersion: apps/v1      
+kind: Deployment
+metadata:
+  name: httpd-deployment
+spec:
+  selector:
+    matchLabels:
+      app: httpd
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: httpd
+    spec:
+      containers:
+      - name: httpd
+        image: httpd:latest 
+        ports:
+        - containerPort: 80
+
+
+
+
+cat notin.yml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: with-node-affinity
+spec:
+  affinity:
+    nodeAffinity: 
+      preferredDuringSchedulingIgnoredDuringExecution: 
+      - weight: 1 
+        preference:
+          matchExpressions:
+          - key: color
+            operator: NotIn 
+            values:
+            - blue 
+  containers:
+  - name: httpd
+    image: docker.io/httpd
+    
+Cat notindep.yml 
+apiVersion: apps/v1      
+kind: Deployment
+metadata:
+  name: httpd-deployment
+spec:
+  selector:
+    matchLabels:
+      app: httpd
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: httpd
+    spec:
+     affinity:
+      nodeAffinity:
+       preferredDuringSchedulingIgnoredDuringExecution:
+       - weight: 1
+         preference:
+           matchExpressions:
+           - key: color
+             operator: NotIn
+             values:
+             - blue
+     containers:
+     - name: httpd
+       image: httpd:latest 
+       ports:
+       - containerPort: 80
+----
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cpu-demo
+  namespace: cpu-example
+spec:
+  containers:
+  - name: cpu-demo-ctr
+    image: vish/stress
+    resources:
+      limits:
+        cpu: "1"
+      requests:
+        cpu: "0.5"
+    args:
+    - -cpus
+    - "2"
+---
+Resourcequota
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: object-counts
+spec:
+  hard:
+    configmaps: "10"
+    persistentvolumeclaims: "4"
+    pods: "2"
+    replicationcontrollers: "20"
+    secrets: "10"
+    services: "10"
+    services.loadbalancers: "2"
+
+
+kubectl create namespace testproject1
+ 1296  kubectl create -f  resquota.yml -n testproject1
+ 1299  kubectl get resourcequota -n testproject1
+ 1301  kubectl describe resourcequota object-counts -n testproject1
+ 1302  kubectl run test1 --image=httpd -n testproject1 --replicas=3
+ 1303  kubectl get events -w -n testproject1
+ 1304  kubectl get pods -n testproject1
+ 1305  kubectl describe resourcequota object-counts -n testproject1
+
+
+LimitRange
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: limit-mem-cpu-per-container
+spec:
+  limits:
+  - max:
+      cpu: "800m"
+      memory: "1Gi"
+    min:
+      cpu: "100m"
+      memory: "99Mi"
+    default:
+      cpu: "700m"
+      memory: "900Mi"
+    defaultRequest:
+      cpu: "110m"
+      memory: "111Mi"
+    type: Container
+----
+Daemonsets
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: frontend
+spec:
+  template:
+    metadata:
+      labels:
+        app: frontend-webserver
+    spec:
+      nodeSelector:
+        app: frontend-node
+      containers:
+        - name: webserver
+          image: httpd
+          ports:
+          - containerPort: 80
+----
+
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: apache
+  labels:
+    name1: test1
+spec:
+  selector:
+    matchLabels:
+      name: apache
+  template:
+    metadata:
+      labels:
+        name: apache
+    spec:
+      containers:
+      - name: httpd
+        image: httpd
+
+
+
+
+
+
+----
+docker build -t myhttpd .
+ 1339  docker images
+ 1340  docker tag myhttpd ashutoshbhakare/simplilearn:myhttpd
+ 1341  docker push ashutoshbhakare/simplilearn:myhttpd
+ 1342  docker tag myhttpd ashutoshbhakare/simplilearn/myhttpd:v2
+ 1343  docker push ashutoshbhakare/simplilearn/myhttpd:v2
+ 1344  history 
+root@kmaster:~/docker# cat Dockerfile 
+FROM docker.io/centos
+
+
+MAINTAINER "abcl abcl@simplilearn.com"
+
+
+RUN yum install httpd -y
+
+
+ADD index.html /var/www/html/
+
+
+CMD ["/usr/sbin/httpd","-D","FOREGROUND"]
+
+
+---
+ kubectl run test1 --image=ashutoshbhakare/simplilearn:myhttpd
+
+
+---
+ kubectl run test2 --image=ashutoshbhakare/simple1:v2
+--
+Image push with version
+docker tag myhttpd ashutoshbhakare/simple1:v2
+ 1360  docker push ashutoshbhakare/simple1:v2
+ 1361  docker tag myhttpd ashutoshbhakare/simple1:v3
+ 1362  docker push ashutoshbhakare/simple1:v3
+
+
+
+
+
+
+----
+Static POD
+ 38  cat /etc/systemd/system/kubelet.service.d/10-kubeadm.conf 
+   39  systemctl daemon-reload 
+   40  systemctl restart kubelet
+   41  docker ps | grep static
+   42  tail /var/log/syslog -f
+   43  vi /test/pod.yml 
+   44  systemctl daemon-reload 
+   45  systemctl restart kubelet
+   46  vi /test/pod.yml 
+   47  tail /var/log/syslog -f
+   48  docker ps | grep static
+   49  cd /test/
+   50  ls
+   51  cp pod.yml pod1.yml 
+   52  vi pod1.yml 
+   53  tail /var/log/syslog -f
+   54  ls
+   55  rm pod1.yml 
+   56  cd
+   57  history 
+root@kslave2:~# cat /test/pod.yml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: staticapache2
+  labels:
+    mycka: simplilearn
+spec:
+  containers:
+  - name: mycontainer
+    image: docker.io/httpd
+    ports:
+    - containerPort: 80
+
+
+
+
+root@kslave2:~# cat /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+# Note: This dropin only works with kubeadm and kubelet v1.11+
+[Service]
+Environment="KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf"
+Environment="KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml"
+# This is a file that "kubeadm init" and "kubeadm join" generates at runtime, populating the KUBELET_KUBEADM_ARGS variable dynamically
+EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env
+# This is a file that the user can use for overrides of the kubelet args as a last resort. Preferably, the user should use
+# the .NodeRegistration.KubeletExtraArgs object in the configuration files instead. KUBELET_EXTRA_ARGS should be sourced from this file.
+EnvironmentFile=-/etc/default/kubelet
+ExecStart=
+ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS --pod-manifest-path=/test/
+
+
+--
+Scheduler
+https://github.com/kubernetes/kubernetes/blob/master/pkg/scheduler/scheduler.go
+
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-scheduler
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: my-scheduler-as-kube-scheduler
+subjects:
+- kind: ServiceAccount
+  name: my-scheduler
+  namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: system:kube-scheduler
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    component: scheduler
+    tier: control-plane
+  name: my-scheduler
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      component: scheduler
+      tier: control-plane
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        component: scheduler
+        tier: control-plane
+        version: second
+    spec:
+      serviceAccountName: my-scheduler
+      containers:
+      - command:
+        - /usr/local/bin/kube-scheduler
+        - --address=0.0.0.0
+        - --leader-elect=false
+        - --scheduler-name=my-scheduler
+        image: gcr.io/my-gcp-project/my-kube-scheduler:1.0
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 10251
+          initialDelaySeconds: 15
+        name: kube-second-scheduler
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 10251
+        resources:
+          requests:
+            cpu: '0.1'
+        securityContext:
+          privileged: false
+        volumeMounts: []
+      hostNetwork: false
+      hostPID: false
+      volumes: []
+--
+
+
+Scheduling a pod using custom scheduler
+apiVersion: v1
+kind: Pod
+metadata:
+  name: annotation-default-scheduler
+  labels:
+    name: multischeduler-example
+spec:
+  schedulerName: default-scheduler
+  containers:
+  - name: pod-with-default-annotation-container
+    image: k8s.gcr.io/pause:2.0
+
+
+
+
+-----
+Node affinity 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: with-node-affinity
+spec:
+  affinity:
+    nodeAffinity: 
+      preferredDuringSchedulingIgnoredDuringExecution: 
+      - weight: 1 
+        preference:
+          matchExpressions:
+          - key: color
+            operator: NotIn 
+            values:
+            - blue 
+  containers:
+  - name: httpd
+    image: docker.io/httpd
+---
+Deployment 
+apiVersion: apps/v1      
+kind: Deployment
+metadata:
+  name: httpd-deployment
+spec:
+  selector:
+    matchLabels:
+      app: httpd
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: httpd
+    spec:
+     affinity:
+      nodeAffinity:
+       preferredDuringSchedulingIgnoredDuringExecution:
+       - weight: 1
+         preference:
+           matchExpressions:
+           - key: color
+             operator: NotIn
+             values:
+             - blue
+     containers:
+     - name: httpd
+       image: httpd:latest 
+       ports:
+       - containerPort: 80
+---
+git clone https://github.com/bibinwilson/kubernetes-prometheus
+
+
+
+
+
+
+---
+
+
+Kubectl events -w -n defaults 
+ 1352  kubectl get events -w -n defaults 
+ 1353  tail /var/log/containers/*.log
+ 1354  tail /var/log/pods/*
+ 1355  tail /var/log/pods/kube-system_coredns-6955765f44-fqwg9_030124e2-08da-4554-940e-2cb5f88fc2ef/coredns/4.log 
+ 1356  journalctl -u kubelet
+
+
+---
+Grafana
+Cat grafana.yml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: monitoring
+data:
+  prometheus.yaml: |-
+    {
+        "apiVersion": 1,
+        "datasources": [
+            {
+               "access":"proxy",
+                "editable": true,
+                "name": "prometheus",
+                "orgId": 1,
+                "type": "prometheus",
+                "url": "http://prometheus-service.monitoring.svc:8080",
+                "version": 1
+            }
+        ]
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      name: grafana
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:latest
+        ports:
+        - name: grafana
+          containerPort: 3000
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+          requests: 
+            memory: "1Gi"
+            cpu: "500m"
+        volumeMounts:
+          - mountPath: /var/lib/grafana
+            name: grafana-storage
+          - mountPath: /etc/grafana/provisioning/datasources
+            name: grafana-datasources
+            readOnly: false
+      volumes:
+        - name: grafana-storage
+          emptyDir: {}
+        - name: grafana-datasources
+          configMap:
+              defaultMode: 420
+              name: grafana-datasources
+---   
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: monitoring
+  annotations:
+      prometheus.io/scrape: 'true'
+      prometheus.io/port:   '3000'
+spec:
+  selector: 
+    app: grafana
+  type: NodePort  
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 32000
+
+
+---
+https://grafana.com/grafana/dashboards?search=kubernetes
+
+
+for node level https://grafana.com/grafana/dashboards/10000
+
+
+for namespace base - https://grafana.com/grafana/dashboards/10551
+---
+Dashboard
+https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0-beta4/aio/deploy/recommended.yaml 
+      9  kubectl -n kubernetes-dashboard describe secret $(kubectl -n kubernetes-dashboard get secret | grep kubernetes-dashboard | awk '{print $1}')
+ 1404  kubectl edit svc -n kubernetes-dashboard kubernetes-dashboard
+ 1405  kubectl get svc -n kubernetes-dashboard
+
+
+
+
+
+
+---
+Multitier APplication 
+
+
+kubectl run mysql --image=mysql:5.6 --env MYSQL_USER=user1 --env MYSQL_PASSWORD=redhat --env MYSQL_DATABASE=blr --env MYSQL_ROOT_PASSWORD=redhat
+
+
+
+
+apt install mysql-client-core-5.7
+
+
+kubectl run wordpress --image=wordpress --port=80 --env WP_HOST=mysql --env WP_PASSWORD=redhat
+
+
+kubectl run mydb --image=mysql:5.6 --env MYSQL_USER=user1 --env MYSQL_PASSWORD=redhat --env MYSQL_DATABASE=blr --env MYSQL_ROOT_PASSWORD=redhat
+ 1481  kubectl get pods -w
+ 1482  kubectl get svc
+ 1483  kubectl expose deployment mydb --port=3306
+ 1484  kubectl get svc
+ 1488  kubectl get pods -o wide
+ 1493  apt install mysql-client-core-5.7
+ 1495  kubectl get pods -o wide
+ 1496  mysql -h10.44.0.11 -uroot -predhat
+  1499  kubectl run wordpress --image=wordpress --port=80 --env WP_HOST=mydb --env WP_PASSWORD=redhat
+ 1502  kubectl expose deployment wordpress --port=80
+ 1503  kubectl get svc
+ 1504  kubectl edit svc wordpress  -Make it NodePort
+ 1506  curl wgetip.com
+
+
+Metrics Server
+
+
+# git clone https://github.com/kubernetes-incubator/metrics-server.git
+
+
+# kubectl apply -f metrics-server/deploy/kubernets/
+
+
+<<PATCH>>
+wget -c https://gist.githubusercontent.com/initcron/1a2bd25353e1faa22a0ad41ad1c01b62/raw/008e23f9fbf4d7e2cf79df1dd008de2f1db62a10/k8s-metrics-server.patch.yaml
+
+
+kubectl patch deploy metrics-server -p "$(cat k8s-metrics-server.patch.yaml)" -n kube-system
+
+
+History
+cd deploy/kubernetes/
+ 1522  ls
+ 1523  kubectl create -f .
+ 1524  cd
+ 1525  kubectl get pods --all-namespaces
+ 1526  kubectl logs metrics-server-58c885686f-jwxg2 -n kube-system
+ 1527  cd metrics-server/
+ 1528  wget -c https://gist.githubusercontent.com/initcron/1a2bd25353e1faa22a0ad41ad1c01b62/raw/008e23f9fbf4d7e2cf79df1dd008de2f1db62a10/k8s-metrics-server.patch.yaml
+ 1529  kubectl patch deploy metrics-server -p "$(cat k8s-metrics-server.patch.yaml)" -n kube-system
+ 1530  kubectl logs metrics-server-58c885686f-jwxg2 -n kube-system
+ 1531  kubectl get pods --all-namespaces
+ 1532  kubectl logs metrics-server-7d89945f47-gq9rr -n kube-system
+ 1533  kubectl logs metrics-server-7d89945f47-gq9rr -n kube-system -f
+ 1534  kubectl top nodes
+ 1535  kubectl top pods
+
+
+
+
+---
+HPA
+kubectl run php-apache --image=k8s.gcr.io/hpa-example --requests=cpu=200m --expose --port=80
+
+
+kubectl autoscale deployment php-apache --cpu-percent=50 --min=1 --max=10
+
+
+#kubectl run -i --tty load-generator --image=busybox /bin/sh
+
+
+while true; do wget -q -O- http://php-apache.default.svc.cluster.local; done
+
+
+Rolling updates
+kubectl run mydep --image=ghost:0.9 --record
+ kubectl rollout history deployment mydep
+  705  kubectl set image deployment/mydep mydep=ghost:0.11 --record
+  706  kubectl rollout history deployment mydep
+  707  kubectl rollout pause deployment mydep
+  708  kubectl get pods -w
+  709  kubectl set image deployment/mydep mydep=ghost:0.9 --record
+  710  kubectl rollout history deployment mydep
+  711  kubectl get pods 
+  712  kubectl rollout resume deployment mydep
+    717  kubectl rollout undo deployments mydep --to-revision=3
+  718  kubectl get pods -wx
+
+
+Secrets
+
+
+kubectl create secret generic mysecret --from-literal='dbpass=redhat'
+ 1586  kubectl get secret
+ 1587  kubectl edit secret mysecret
+ 1589  kubectl edit deployment mydb
+ - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: dbpass
+              name: mysecret
+----
+Config map
+kind: ConfigMap 
+apiVersion: v1 
+metadata:
+  name: example-configmap 
+data:
+  # Configuration values can be set as key-value properties
+  database: mongodb
+  database_uri: mongodb://localhost:27017
+----
+
+
+  # Or set as complete file contents (even JSON!)
+  keys: | 
+    image.public.key=771 
+    rsa.public.key=42
+---
+kind: Pod 
+apiVersion: v1 
+metadata:
+  name: pod-env-var 
+spec:
+  containers:
+    - name: env-var-configmap
+      image: nginx:1.7.9 
+      envFrom:
+        - configMapRef:
+            name: example-configmap
+----
+Config Map as a File 
+cat configfile.yml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: testconfig
+spec:
+  containers:
+    - name: test
+      image: docker.io/httpd
+      volumeMounts:
+      - name: config-volume
+        mountPath: /tmp/myenvs/
+  volumes:
+    - name: config-volume
+      configMap:
+        name: example-configmap 
+  restartPolicy: Never
+-----
+CONFIGMAP AS ENV
+kind: Pod 
+apiVersion: v1 
+metadata:
+  name: pod-env12
+spec:
+  containers:
+    - name: env-var-configmap
+      image: nginx:1.7.9 
+      env:
+        - name: testenv
+          valueFrom: 
+           configMapKeyRef:
+             name: example-configmap
+             key: database
+        - name: myenv
+          valueFrom: 
+           configMapKeyRef:
+             name: example-configmap
+             key: database_uri
+
+
+
+
+Args
+apiVersion: v1
+kind: Pod
+metadata:
+    name: command-demo
+    labels: 
+        purpose: demo-command
+spec:
+    containers:
+    - name: command-demo-container
+      image: ubuntu
+      command: ["hostname"]
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+    name: command-demo1
+    labels: 
+        purpose: demo-command
+spec:
+    containers:
+    - name: command-demo-container
+      image: ubuntu
+      command: ["/bin/sh"]
+      args: ["-c", "while true; do echo hello; sleep 10;done"]
+---
+
+
+ kubectl top pods  | sort --key 3 --numeric
+ 1734  kubectl top pods  | sort --key 3 --numeric --reverse
+ 1735  kubectl top pods  | sort --key 2 --numeric --reverse
+
+
+
+
+MULTICONTAINER POD
+cat multicont.yml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mc1
+spec:
+  volumes:
+  - name: html
+    emptyDir: {}
+  containers:
+  - name: 1st
+    image: nginx
+    volumeMounts:
+    - name: html
+      mountPath: /usr/share/nginx/html
+  - name: 2nd
+    image: debian
+    volumeMounts:
+    - name: html
+      mountPath: /html
+    command: ["/bin/sh", "-c"]
+    args:
+      - while true; do
+          date >> /html/index.html;
+          sleep 1;
+        done
+---
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mc2
+spec:
+  containers:
+  - name: producer
+    image: allingeek/ch6_ipc
+    command: ["./ipc", "-producer"]
+  - name: consumer
+    image: allingeek/ch6_ipc
+    command: ["./ipc", "-consumer"]
+  restartPolicy: Never
+---
+cat multicont.yml 
+ 1745  kubectl create -f multicont.yml 
+ 1746  kubectl get pod s
+ 1747  kubectl get pods
+ 1748  kubectl get pods -w
+ 1749  kubectl exec -it mc1 bash
+ 1750  kubectl describe pod mc1
+ 1751  kubectl exec -it mc1 bash -c 2nd
+ 1752  history 
+ 1753  cat multipo
+ 1754  cat multicont.yml
+----
+Init-containers
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: myapp-container
+    image: busybox
+    command: ['sh', '-c', 'echo The app is running! && sleep 3600']
+  initContainers:
+  - name: init-myservice
+    image: busybox
+    command: ['sh', '-c', 'until nslookup myservice; do echo waiting for  
+                myservice; sleep 2; done;']
+  - name: init-mydb
+    image: busybox
+    command: ['sh', '-c', 'until nslookup mydb; do echo waiting for mydb;             
+                sleep 2; done;']
+
+
+History
+kubectl create -f init.yml 
+ 1772  kubectl get pods -w
+ 1773  kubectl get events -w
+ 1774  kubectl get pod s
+ 1775  kubectl get pods
+ 1776  kubectl describe pod myapp-pod
+ 1777  kubectl get pods
+ 1778  vi svc1.yml 
+ 1779  kubectl create -f svc1.yml
+----
+Probes
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    test: liveness
+  name: liveness-exec
+spec:
+  containers:
+  - name: liveness
+    image: k8s.gcr.io/busybox
+    args:
+    - /bin/sh
+    - -c
+    - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600
+    livenessProbe:
+      exec:
+        command:
+        - cat
+        - /tmp/healthy
+      initialDelaySeconds: 5
+
+
+      periodSeconds: 5
+
+
+
+
+----
+cat dcprobe.yml 
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: probe1
+spec:
+  selector:
+    matchLabels:
+      app: probe
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: probe
+    spec:
+      containers:
+      - name: liveness
+        image: k8s.gcr.io/busybox
+        args:
+        - /bin/sh
+        - -c
+        - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600
+        livenessProbe:
+         exec:
+          command:
+          - cat
+          - /tmp/healthy
+         initialDelaySeconds: 5
+         periodSeconds: 5
+
+
+
+
+
+
+---
+kubectl get pods -n kube-system
+ 1919  kubectl logs kube-apiserver-kmaster -n kube-system
+ 1920  kubectl logs kube-apiserver-kmaster -n kube-system -f
+ 1921  kubectl logs kube-apiserver-kmaster -n kube-system -w
+ 1922  kubectl logs kube-apiserver-kmaster -n kube-system 
+ 1923  kubectl get roles -n kube-system
+ 1924  kubectl get clusterrole -n kube-system
+ 1926  kubectl get clusterrolebindings
+ 1927  kubectl get serviceaccount
+ 1928  kubectl get serviceaccount -n kube-system
+---
+
+
+   
+   cat <<EOF | kubectl create -f -
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: user1
+  namespace: kubernetes-dashboard 
+EOF
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dashboard-viewonly
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - persistentvolumeclaims
+  - pods
+  - replicationcontrollers
+  - replicationcontrollers/scale
+  - serviceaccounts
+  - services
+  - nodes
+  - persistentvolumeclaims
+  - persistentvolumes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - bindings
+  - events
+  - limitranges
+  - namespaces/status
+  - pods/log
+  - pods/status
+  - replicationcontrollers/status
+  - resourcequotas
+  - resourcequotas/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - deployments
+  - deployments/scale
+  - replicasets
+  - replicasets/scale
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - extensions
+  resources:
+  - daemonsets
+  - deployments
+  - deployments/scale
+  - ingresses
+  - networkpolicies
+  - replicasets
+  - replicasets/scale
+  - replicationcontrollers/scale
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - storageclasses
+  - volumeattachments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  - roles
+  - rolebindings
+  verbs:
+  - get
+  - list
+  - watch
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: user1
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dashboard-viewonly
+subjects:
+- kind: ServiceAccount
+  name: user1
+  namespace: kubernetes-dashboard
+   
+  ---------------------
+
+
+kubectl -n kubernetes-dashboard describe secret $(kubectl -n kubernetes-dashboard get secret | grep user1 | awk '{print $1}')
+----
+
+
+IMP --- IMP 
+
+
+On master
+kubectl create namespace simplilearn
+ 1963  mkdir simplilearn
+ 1964  cd simplilearn/
+ 1966  openssl genrsa -out user3.key 2048
+ 1968  openssl req -new -key user3.key -out user3.csr
+ 1972  openssl x509 -req -in user3.csr -CA /etc/kubernetes/pki/ca.crt -CAkey /etc/kubernetes/pki/ca.key -CAcreateserial -out user3.crt -days 500
+Organisation name → namspace 
+and common name  → user
+
+
+
+
+     kind: Role
+     apiVersion: rbac.authorization.k8s.io/v1beta1
+     metadata:
+        namespace: simplilearn
+        name: user3-role            
+     rules:
+     - apiGroups: ["", "extensions", "apps"]
+       resources: ["deployments", "pods", "services"]
+       verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+
+       kind: RoleBinding
+       apiVersion: rbac.authorization.k8s.io/v1beta1
+       metadata:
+          name: role-test
+          namespace: simplilearn
+       subjects:
+       - kind: User
+         name: user3
+         apiGroup: ""
+       roleRef:
+         kind: Role
+         name: user3-role
+         apiGroup: ""
+   
+    
+    >> kubectl create -f role.yaml
+    >> kubectl create -f rolebinding.yaml
+  
+   Set credentials :
+
+
+    >>kubectl config set-credentials user3 --client-certificate=/root/simplilearn/user3.crt --client-key=/root/simplilearn/user3.key
+    
+  Set context to simplilearn Namespace:
+  
+
+
+    >> kubectl config set-context  user3-context --cluster=kubernetes --namespace=simplilearn --user=user3
+
+
+
+
+
+
+ you need to copy the config File from master to client side
+  
+  Note: - config file are located on /root/.kube/ on master 
+        - you need to create /root/.kube directory in Client side
+  
+        - copy config file from /root/.kube on master to /root/.kube on
+          client side
+ you need to copy ssl key and certicate from master to client side in   
+ /root/.kube location 
+
+
+ On node
+
+
+chown $(id -u):$(id -g) /root/.kube/config
+
+
+ Edit the Config file on client side
+ 
+ >> vi /root/.kube/config 
+       
+   
+Check Current Context
+
+
+>> kubectl config get-contexts
+
+
+>> kubectl config use-context user3-context 
+
+
+>> kubectl get pods 
+
+
+
+
+---
+Network Policies
+
+
+
+
+---
+kubectl run web --image=nginx --labels app=web --expose --port 80
+
+
+kubectl run --rm -it --image=alpine test -- sh
+
+# wget -qO- --timeout=2 http://web 
+
+
+ 
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: testing
+spec:
+  podSelector:
+    matchLabels:
+      app: web
+  ingress: []
+
+
+
+
+---
+kubectl config set-context $(kubectl config current-context) --namespace=<insert-namespace-name-here>
+----
+
+
+Example 2
+ kubectl run apiserver --image=nginx --labels app=bookstore,role=api --expose --port=80
+
+
+For testing 
+kubectl run test1 --rm -it --image=alpine --labels app=bookstore -- sh
+
+
+Open another terminal and do
+kubectl attach -it test1-54f7ff7667-zhgtd (pod name will be different) 
+Wget -qO- --timeout=2 http://apiserver
+
+
+----
+Kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: api-allow
+spec:
+  podSelector:
+    matchLabels:
+      app: bookstore
+      role: api
+  ingress:
+  - from:
+      - podSelector:
+          matchLabels:
+            app: bookstore
+----
+
+
+All traffic internally within the namespace 
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  namespace: secondary
+  name: deny-from-other-namespaces
+spec:
+  podSelector:
+    matchLabels:
+  ingress:
+  - from:
+    - podSelector: {}
+
+
+--
+kubectl create namespace secondary
+ 2072  kubectl run web --namespace secondary --image=nginx --labels=app=web --expose --port 80
+ 2073  kubectl get pods 
+ 2074  kubectl get pods -n secondary
+ 2075  cat network3.yml 
+ 2076  kubectl create -f network3.yml 
+ 2077  kubectl get networkpolicy -n secondary
+ 2078  kubectl run test-$RANDOM --namespace=default --rm -it --image=alpine -- sh
+ 2079  kubectl run test-$RANDOM --namespace=secondary --rm -it --image=alpine -- sh
+
+
+
+
+--
+
+
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: web-allow-prod
+spec:
+  podSelector:
+    matchLabels:
+      app: web
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          purpose: production
+
+
+ kubectl run web --image=nginx --labels=app=web --expose --port 80
+ 2085  kubectl get svc
+ 2086  kubectl describe svc web
+ 2087  curl 10.108.217.227
+ 2088  kubectl create namespace dev
+ 2089  kubectl label namespace/dev purpose-testing
+ 2090  kubectl label namespace/dev purpose=testing
+ 2091  kubectl get namespaces --show-labels
+ 2092  kubectl create namespace prod
+ 2093  kubectl label namespace/prod purpose=production
+ 2094  kubectl get namespaces --show-labels
+ 2095  vi network4.yml
+ 2096  cat network4.yml 
+ 2097  kubectl create -f network4.yml 
+ 2098  kubectl run test-$RANDOM --namespace=dev --rm -it --image=alpine -- sh
+wget  -qO- --timeout=2 http://web.default
+
+
+ 2099  kubectl run test-$RANDOM --namespace=prod --rm -it --image=alpine -- sh
+---
+
+
+Task
+
+
+Namespace --- label team=operations --namespace=thinkpad
+
+
+
+
+pod---> labels type=monitoring
+
+
+Mypod is running in namespace default 
+
+
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: web-allow-all-ns-monitoring
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: web
+  ingress:
+    - from:
+      - namespaceSelector:     # chooses all pods in namespaces labelled with team=operations
+          matchLabels:
+            team: operations  
+        podSelector:           # chooses pods with type=monitoring
+          matchLabels:
+            type: monitoring
+
+
+ kubectl run web --image=nginx --labels=app=web --expose --port=80
+ 2111  kubectl get svc
+ 2112  kubectl describe svc web
+ 2113  kubectl get pods 
+ 2114  kubectl get pods -o wide
+ 2115  kubectl get pods --all-namespace
+ 2116  kubectl get pods --all-namespaces
+ 2117  kubectl create namespace thinkpad
+ 2118  kubectl label namespace/thinkpad team=operations 
+ 2119  vi network5.yml
+ 2120  kubectl create -f network5.yml 
+ 2121  kubectl run test-$RANDOM --rm -it --image=alpine -- sh 
+ 2122  kubectl run test-$RANDOM --labels type=monitoring --rm -it --image=alpine -- sh 
+ 2123  kubectl run test-$RANDOM --namespace=thinkpad --labels type=monitoring --rm -it --image=alpine -- sh 
+ 2124  vi network5.yml 
+ 2125  #kubectl run test-$RANDOM --namespace=thinkpad --labels type=monitoring --rm -it --image=alpine -- sh 
+ 2126  cat network5.yml 
+ 2127  kubectl get namespace --show-labels
+ 2128  kubectl get pods 
+ 2129  kubectl describe pod web-7fd74dc8dd-s5mdq
+ 2130  #kubectl run test-$RANDOM --namespace=thinkpad --labels type=monitoring --rm -it --image=alpine -- sh 
+
+
+----
+Specific port
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: api-allow-5000
+spec:
+  podSelector:
+    matchLabels:
+      app: apiserver
+  ingress:
+  - ports:
+    - port: 5000
+    from:
+    - podSelector:
+        matchLabels:
+          role: monitoring
+---
+
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: foo-deny-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: foo
+  policyTypes:
+  - Egress
+  egress: []
+
+
+
+
+----
+cat hostpath.yml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pd
+spec:
+  containers:
+  - image: docker.io/httpd
+    name: test-container
+    volumeMounts:
+    - mountPath: /test-pd
+      name: test-volume
+  volumes:
+  - name: test-volume
+    hostPath:
+      path: /ckaexam
+      type: Directory
+---
+apiVersion: v1
+
+
+kind: Pod
+
+
+metadata:
+
+
+  name: my-pod
+
+
+spec:
+
+
+  containers:
+
+
+  - image: my-app-image
+
+
+    name: my-app
+
+
+    volumeMounts:
+
+
+    - mountPath: /cache
+
+
+      name: cache-volume
+
+
+  volumes:
+
+
+    - name: cache-volume
+
+
+      emptyDir: {}
+---
+
+
+On kslave2 
+ mkdir /myshare
+    2  sudo apt-get update
+    3  sudo apt install nfs-kernel-server
+    4  vi /etc/exports 
+/myshare *(rw,sync,no_root_squash)
+    5  exportfs -r
+    6  cat /etc/exports 
+    7  chown nfsnobody:nfsnobody /myshare/
+    8  chown nobody:nobody /myshare/
+    9  chown nobody:nogroup /myshare/
+   10  chmod 777 /myshare/
+
+
+---
+cat pv.yml 
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: test
+  labels:
+    app: mysql
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: 172.31.30.48
+    # Exported path of your NFS server
+    path: "/mnt/sharedfolder"
+        
+
+
+cat pvc.yml 
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mypvc1
+  labels:
+    app: wordpress
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 6Gi
+        
+
+
+cat pod1.yml 
+apiVersion:  apps/v1beta2 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: wordpress-mysql
+  labels:
+    app: wordpress
+spec:
+  selector:
+    matchLabels:
+      app: wordpress
+      tier: mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: wordpress
+        tier: mysql
+    spec:
+      containers:
+      - image: mysql:5.6
+        name: mysql
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: redhat
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: mydbpath  # which data will be stored
+          mountPath: "/var/lib/mysql"
+      volumes:
+      - name: mydbpath    # PVC
+        persistentVolumeClaim:
+          claimName: mypvc1
+
+
+---
+   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/mandatory.yaml
+
+
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/provider/baremetal/service-nodeport.yaml
+--
+
+
+Rule
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: test-ingress1
+spec:
+  backend:
+    serviceName: httpd-service
+    servicePort: 80
+
+
+----
+
+
+apiVersion: networking.k8s.io/v1beta1  ### if it is v1.13 you can use extensions/v1beta1
+kind: Ingress
+metadata:
+  name: test-ingress2
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /testpath2
+        backend:
+          serviceName: new1
+          servicePort: 80
+
+
+---
+ kubectl run ckaexam --image=docker.io/httpd -n cka
+ 1060  kubectl get pods -n cka
+ 1061  kubectl expose deployment/ckaexam --port=80 -n cka
+ 1062  kubectl get svc -n cka
+ 1063  vi rule.yml
+ 1064  kubectl create -f rule.yml -n cka
+ 1065  kubectl get ingress -n cka
+ 1066  curl wgetip.com
+ 1067  kubectl get svc -n ingres-nginx
+ 1068  kubectl get svc -n ingress-nginx
+ 1069  kubectl edit ingress -n cka
+ 1070  kubectl create namespace docker
+ 1071  kubectl run cont --image=docker.io/httpd --expose --port=80 -n docker
+ 1072  kubectl get pod -n docker
+ 1073  kubectl exec -it cont-6b47fcdfc5-nwxxz bash -n docker
+ 1074  vi ingress.yml 
+ 1075  kubectl create -f  ingress.yml 
+ 1076  kubectl create -f  ingress.yml  -n docker
+
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox
+  namespace: default
+spec:
+  containers:
+  - name: busybox
+    image: busybox:1.28
+    command:
+      - sleep
+      - "3600"
+    imagePullPolicy: IfNotPresent
+  restartPolicy: Always
+  
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: mysql
+  namespace: playground
+spec:
+  type: ExternalName
+  externalName: mysql.default.svc.cluster.local
+  ports:
+  - port: 3306
+---
+
+
+kubectl create namespace mysql
+
+
+kubectl run mysql --image=mysql:5.6 --env MYSQL_USER=user1 --env MYSQL_PASSWORD=redhat --env MYSQL_DATABASE=blr --env MYSQL_ROOT_PASSWORD=redhat -n mysql
+
+
+kubectl create namespace wordpress
+
+
+kubectl run wordpress --image=wordpress --port=80 --env WP_HOST=mysql --env WP_PASSWORD=redhat -n wordpress
+
+
+cat extsv.yml 
+kind: Service
+apiVersion: v1
+metadata:
+  name: mysql
+spec:
+  type: ExternalName
+  externalName: mysql.mysql.svc.cluster.local
+  ports:
+  - port: 3306
+
+
+kubectl create -f extsv.yml -n wordpress
+
+
+
+
+
+
+
+
+ https://github.com/ashutoshbhakare/cka_projects  
+
+
+
+
+---
+ kubectl get events -w
+ 1005  kubectl logs test-pd --tail 10
+ 1006  kubectl logs test-pd --tail 10 --follow
